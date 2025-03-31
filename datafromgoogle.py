@@ -11,6 +11,7 @@ from openai import OpenAI
 import os
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+import json 
 
 
 app = FastAPI()
@@ -31,9 +32,11 @@ class CompaniesList(BaseModel):
 # Авторизация в Google Sheets
 def authorize_gsheet():
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-    creds_path = os.getenv("GOOGLE_SHEETS_CREDENTIALS")  # credentials.json
-    creds = ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
+    creds_json = os.getenv("GOOGLE_CREDS_JSON")
+    creds_dict = json.loads(creds_json)
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     return gspread.authorize(creds)
+
 
 # Запись данных
 def write_to_sheet(sheet_name: str, data: List[str]):
