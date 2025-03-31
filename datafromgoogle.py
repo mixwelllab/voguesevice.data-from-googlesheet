@@ -11,12 +11,13 @@ from openai import OpenAI
 import os
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-from dotenv import load_dotenv
 
-load_dotenv()
 
 app = FastAPI()
 
+os.getenv("OPENAI_API_KEY")
+os.getenv("GOOGLE_CREDS_JSON")
+os.getenv("TABLE_NAME")
 # Константа: название таблицы — замени на СВОЁ точное название!
 TABLE_NAME = "vogue_clients_contacts"  # <-- замени на своё название таблицы
 
