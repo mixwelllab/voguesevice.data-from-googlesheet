@@ -1,9 +1,3 @@
-#АЛГОРИТМ РАБОТЫ СКРИПТА. для скрипта нужно создавать FAST API сервер через uvicorn
-#для работы скрипта используется гугл таблица доступная через апи через
- #console.cloud.google.com/apis/credentials, был скачан и получен файл credentials
- # credentials.json и для созданной гугл таблицы vogue_clients_contacts дал доступ для этого
- # credentials, тесты работы можно проводить через постман 
-
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import List
@@ -11,23 +5,31 @@ from openai import OpenAI
 import os
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-import json 
-
+import json
 
 app = FastAPI()
 
+# Получение переменных окружения
 os.getenv("OPENAI_API_KEY")
 os.getenv("GOOGLE_CREDS_JSON")
 os.getenv("TABLE_NAME")
-# Константа: название таблицы — замени на СВОЁ точное название!
-TABLE_NAME = "vogue_clients_contacts"  # <-- замени на своё название таблицы
+
+# Константа: название таблицы
+TABLE_NAME = "vogue_clients_contacts"
 
 # OpenAI клиент
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Pydantic модель
-class CompaniesList(BaseModel):
-    companies: List[str]
+# Pydantic модели
+class CompanyData(BaseModel):
+    date: str
+    name: str
+    category: str
+    offer: str
+
+class CompaniesRequest(BaseModel):
+    timestamp: str
+    companies: List[CompanyData]
 
 # Авторизация в Google Sheets
 def authorize_gsheet():
@@ -36,7 +38,6 @@ def authorize_gsheet():
     creds_dict = json.loads(creds_json)
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     return gspread.authorize(creds)
-
 
 # Запись данных
 def write_to_sheet(sheet_name: str, data: List[str]):
@@ -50,7 +51,7 @@ def read_from_sheet(sheet_name: str):
     sheet = client.open(sheet_name).sheet1
     return sheet.get_all_values()
 
-
+# Роуты
 @app.get("/")
 async def root():
     return {"message": "Company Recorder API is working!"}
@@ -64,9 +65,11 @@ async def openai_test(prompt: str = "Привет!"):
     return {"response": completion.choices[0].message.content}
 
 @app.post("/save_companies")
-async def save_companies(companies_list: CompaniesList):
-    write_to_sheet(TABLE_NAME, companies_list.companies)
-    return {"status": "success", "saved_companies": companies_list.companies}
+async def save_companies(data: CompaniesRequest):
+    for company in data.companies:
+        row = [data.timestamp, company.date, company.name, company.category, company.offer]
+        write_to_sheet(TABLE_NAME, row)
+    return {"status": "success", "saved_companies": len(data.companies)}
 
 @app.get("/get_companies")
 async def get_companies():
