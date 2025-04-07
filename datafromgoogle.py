@@ -1,3 +1,62 @@
+# === 🚀 FastAPI скрипт для работы с Google Таблицей: подбор и пометка компаний ===
+
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import List
+import os
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+from dotenv import load_dotenv
+from datetime import datetime
+from difflib import get_close_matches
+
+load_dotenv()
+
+app = FastAPI()
+
+TABLE_NAME = "vogue_clients_contacts"
+SHEET_NAME = "Лист1"  # если у тебя другой лист — укажи точно
+
+# Модель запроса на подбор компаний
+class TopicRequest(BaseModel):
+    topic: str
+    count: int
+
+# Авторизация в Google Sheets
+def authorize_gsheet():
+    scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+    creds_path = os.getenv("GOOGLE_SHEETS_CREDENTIALS")
+    creds = ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
+    return gspread.authorize(creds)
+
+# Прочитать таблицу и вернуть заголовки и данные
+def load_table():
+    client = authorize_gsheet()
+    sheet = client.open(TABLE_NAME).worksheet(SHEET_NAME)
+    data = sheet.get_all_records()
+    return sheet, data
+
+# Найти наиболее подходящую рубрику
+def find_best_rubric(requested_topic: str, all_rubrics: List[str]) -> str:
+    matches = get_close_matches(requested_topic.lower(), [r.lower() for r in all_rubrics], n=1, cutoff=0.5)
+    if not matches:
+        return None
+    matched = matches[0]
+    for r in all_rubrics:
+        if r.lower() == matched:
+            return r
+    return None
+
+@app.get("/")
+async def root():
+    return {"message": "Company API is working!"}
+
+@app.get("/get_companies")
+async def get_companies():
+    _, data = load_table()
+    issued = [row for row in data if str(row.get("was_issued", "")).strip().lower() == "true"]
+    return {"companies": issued}
+
 @app.post("/get_companies_by_topic")
 async def get_companies_by_topic(request: TopicRequest):
     sheet, data = load_table()
