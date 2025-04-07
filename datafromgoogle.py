@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List
@@ -8,7 +8,6 @@ from oauth2client.service_account import ServiceAccountCredentials
 from dotenv import load_dotenv
 from datetime import datetime
 from difflib import get_close_matches
-import json
 
 load_dotenv()
 
@@ -26,6 +25,7 @@ def authorize_gsheet():
     creds_json_str = os.getenv("GOOGLE_CREDS_JSON")
     if not creds_json_str:
         raise ValueError("⛔ Переменная окружения GOOGLE_CREDS_JSON не найдена")
+    import json
     creds_dict = json.loads(creds_json_str)
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     return gspread.authorize(creds)
@@ -77,46 +77,57 @@ async def get_companies(month: int = None, year: int = None):
     except Exception as e:
         print(f"[ERROR] Ошибка при получении компаний: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
-        
+
 @app.post("/get_companies_by_topic")
 async def get_companies_by_topic(req: TopicRequest):
     try:
         sheet, data = load_table()
+        all_rubrics = list(set([row.get("Рубрика", "").strip() for row in data]))
+        print(f"[DEBUG] Уникальные рубрики в таблице: {all_rubrics}")
 
-        all_rubrics = list(set(row.get("Рубрика", "") for row in data))
-        best_rubric = find_best_rubric(req.topic, all_rubrics)
+        matched_rubric = find_best_rubric(req.topic, all_rubrics)
+        print(f"[DEBUG] Найденная рубрика по запросу: {matched_rubric}")
 
-        if not best_rubric:
-            return {"companies": []}
+        if not matched_rubric:
+            return JSONResponse(status_code=404, content={"error": "Рубрика не найдена"})
 
-        matched = [row for row in data if row.get("Рубрика", "").strip().lower() == best_rubric.strip().lower() and str(row.get("was_issued", "")).strip().lower() != "true"]
+        filtered = [
+            (i, row) for i, row in enumerate(data)
+            if row.get("Рубрика", "").strip().lower() == matched_rubric.lower()
+            and str(row.get("was_issued", "")).strip().lower() != "true"
+        ]
+        print(f"[DEBUG] Найдено подходящих строк: {len(filtered)}")
+
+        selected = filtered[:req.count]
+        now = datetime.now()
+
+        for i, _ in selected:
+            row_num = i + 2  # с учётом заголовка
+            try:
+                sheet.update_acell(f"X{row_num}", "TRUE")
+                sheet.update_acell(f"Y{row_num}", now.strftime("%Y-%m-%d"))
+                print(f"[INFO] Строка {row_num} помечена как выданная.")
+            except Exception as e:
+                print(f"[WARNING] Не удалось обновить строку {row_num}: {e}")
 
         result = []
-        now = datetime.now()
-        for row in matched[:req.count]:
+        for _, row in selected:
             result.append({
-                "index": row.get("index", ""),
-                "name": row.get("Название компании", ""),
-                "category": row.get("Рубрика", ""),
-                "website": row.get("website", "—"),
-                "email": row.get("email", "—"),
-                "landline": row.get("landline", "—"),
-                "mobile": row.get("mobile", "—"),
-                "toll_free": row.get("toll_free", "—"),
-                "whatsapp": row.get("whatsapp", "—"),
-                "telegram": row.get("telegram", "—"),
-                "viber": row.get("viber", "—"),
-                "socials": row.get("socials", []),
-                "title": row.get("title", "—"),
-                "offer": row.get("Офер", "—"),
+                "name": row.get("Название компании", "—"),
+                "category": row.get("Рубрика", "—"),
+                "website": row.get("Сайт", "—"),
+                "email": row.get("Email", "—"),
+                "landline": row.get("Телефон стац", "—"),
+                "mobile": row.get("Телефон моб", "—"),
+                "toll_free": row.get("Телефон бесплатный", "—"),
+                "whatsapp": row.get("WhatsApp", "—"),
+                "telegram": row.get("Telegram", "—"),
+                "viber": row.get("Viber", "—"),
+                "socials": row.get("Соцсети", "—"),
+                "title": row.get("Заголовок сайта", "—")
             })
 
-            row_num = int(row.get("index")) + 2
-            sheet.update_acell(f"X{row_num}", "TRUE")
-            sheet.update_acell(f"Y{row_num}", now.strftime("%Y-%m-%d"))
-
         return {"companies": result}
-
     except Exception as e:
         print(f"[ERROR] Ошибка в get_companies_by_topic: {e}")
         raise HTTPException(status_code=500, detail="Ошибка при обработке запроса")
