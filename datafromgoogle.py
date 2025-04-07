@@ -128,11 +128,11 @@ async def get_companies_by_topic(req: TopicRequest):
                 "email": row.get("Email", "—"),
                 "landline": row.get("Стационарный телефон компании", "—"),
                 "mobile": row.get("Мобильный телефон компании", "—"),
-                "toll_free": row.get("Телефон бесплатный", "—"),
+                "toll_free": row.get("Бесплатный номер компании", "—"),
                 "whatsapp": row.get("WhatsApp", "—"),
                 "telegram": row.get("Telegram", "—"),
                 "viber": row.get("Viber", "—"),
-                "socials": row.get("Соцсети", "—"),
+                "socials": row.get("Социальные сети", "—"),
                 "title": row.get("Заголовок сайта", "—")
             })
 
