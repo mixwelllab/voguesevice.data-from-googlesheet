@@ -40,14 +40,23 @@ def load_table():
     return sheet, data
 
 def find_best_rubric(requested_topic: str, all_rubrics: List[str]) -> str:
-    matches = get_close_matches(requested_topic.lower(), [r.lower() for r in all_rubrics], n=1, cutoff=0.5)
-    if not matches:
-        return None
-    matched = matches[0]
+    requested = requested_topic.lower().strip()
+    
+    # Сначала ищем по вхождению слова
     for r in all_rubrics:
-        if r.lower() == matched:
+        if requested in r.lower():
             return r
+
+    # Если не нашли, пробуем get_close_matches
+    matches = get_close_matches(requested, [r.lower() for r in all_rubrics], n=1, cutoff=0.3)
+    if matches:
+        matched = matches[0]
+        for r in all_rubrics:
+            if r.lower() == matched:
+                return r
+
     return None
+
 
 @app.get("/")
 async def root():
