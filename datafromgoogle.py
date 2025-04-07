@@ -114,8 +114,8 @@ async def get_companies_by_topic(request: TopicRequest):
 
         # Обновляем отметку о выдаче
         try:
-            sheet.update_acell(f"U{row_index}", "TRUE")
-            sheet.update_acell(f"V{row_index}", today_str)
+            sheet.update_acell(f"X{row_index}", "TRUE")
+            sheet.update_acell(f"Y{row_index}", today_str)
             print(f"[INFO] Строка {row_index} помечена как выданная.")
         except Exception as e:
             print(f"[ERROR] Не удалось обновить строку {row_index}: {e}")
