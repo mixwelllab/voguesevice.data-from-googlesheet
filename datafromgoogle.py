@@ -25,7 +25,7 @@ class TopicRequest(BaseModel):
 # Авторизация в Google Sheets
 def authorize_gsheet():
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-    ccreds_path = os.getenv("GOOGLE_CREDS_JSON")
+    creds_path = os.getenv("GOOGLE_CREDS_JSON")
     creds = ServiceAccountCredentials.from_json_keyfile_name(creds_path, scope)
     return gspread.authorize(creds)
 
