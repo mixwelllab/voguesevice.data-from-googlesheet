@@ -59,5 +59,5 @@ async def root():
 @app.get("/get_companies")
 async def get_companies():
     _, data = load_table()
-    issued = [row for row in data if str(row.get("was_issued", "")).strip().lower() == "true_
+    issued = [row for row in data if str(row.get("was_issued", "")).strip().lower() == "true_]
 
